@@ -22,7 +22,10 @@ $resultCheck = $conn->query($queryCheck);
 
 if ($resultCheck->num_rows > 0) {
     // Jika sudah ada absensi pada tanggal yang sama, kembalikan pesan error
-    echo 'Anda telah melakukan absensi pada tanggal ini.';
+    $response = array(
+        'error' => true,
+        'message' => 'Anda telah melakukan absensi pada tanggal ini.'
+    );
 } else {
     // Jika belum ada absensi pada tanggal yang sama, simpan data absensi baru
     $queryInsert = "INSERT INTO `absensi` (`nisn`, `tanggal`, `status`) VALUES ('$nisn', '$tanggal', '$status')";
@@ -31,15 +34,19 @@ if ($resultCheck->num_rows > 0) {
     if ($resultInsert) {
         // Jika berhasil, kembalikan respons dalam format JSON
         $response = array(
+            'error' => false,
             'nama' => $_SESSION['nama_lengkap'],
             'tanggal' => $tanggal,
             'status' => $status
         );
-        echo json_encode($response);
     } else {
-        echo 'Gagal menyimpan absensi. Silakan coba lagi.';
+        $response = array(
+            'error' => true,
+            'message' => 'Gagal menyimpan absensi. Silakan coba lagi.'
+        );
     }
 }
 
+echo json_encode($response);
 $conn->close();
 ?>

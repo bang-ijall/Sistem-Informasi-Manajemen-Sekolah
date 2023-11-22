@@ -1,4 +1,31 @@
-<!-- absensi.php -->
+<?php
+session_start();
+
+// Cek apakah pengguna sudah login atau belum
+if (!isset($_SESSION['nisn'])) {
+    header('Location: index.html');
+    exit();
+}
+
+include 'config.php';
+
+$nisn = $_SESSION['nisn'];
+$currentDate = date('Y-m-d');
+
+// Periksa apakah pengguna telah melakukan absensi pada hari ini
+$queryCheckAbsensi = "SELECT * FROM `absensi` WHERE `nisn` = '$nisn' AND `tanggal` = '$currentDate'";
+$resultCheckAbsensi = $conn->query($queryCheckAbsensi);
+
+// Jika sudah melakukan absensi, dapatkan riwayat absensi pada hari itu
+if ($resultCheckAbsensi->num_rows > 0) {
+    $queryHistory = "SELECT * FROM `absensi` WHERE `nisn` = '$nisn' AND `tanggal` = '$currentDate' ORDER BY `tanggal` DESC";
+    $resultHistory = $conn->query($queryHistory);
+    $hasAbsensi = true;
+} else {
+    $hasAbsensi = false;
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -128,6 +155,33 @@
         #info-container button:hover {
             background-color: #4cae4c;
         }
+
+        #history-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
     </style>
 </head>
 
@@ -137,7 +191,7 @@
             <img src="assets/lembaga.png" alt="Profile Photo">
             <span>Nama Lembaga</span>
         </div>
-        <div>
+        <div style="padding-right: 10px;">
             <a href="absensi.php">Absensi</a>
             <a href="rekap_nilai.php">Rekap Nilai</a>
             <a href="jadwal_pelajaran.php">Jadwal Pelajaran</a>
@@ -173,7 +227,56 @@
         </form>
     </div>
 
+    <div id="history-container">
+        <h2>Riwayat Absensi</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Periksa apakah ada riwayat absensi
+                if ($resultHistory->num_rows > 0) {
+                    while ($row = $resultHistory->fetch_assoc()) {
+                        echo '<tr>';
+                        echo '<td>' . $row['tanggal'] . '</td>';
+                        echo '<td>' . $row['status'] . '</td>';
+                        echo '</tr>';
+                    }
+                } else {
+                    echo '<tr><td colspan="2">Belum ada riwayat absensi.</td></tr>';
+                }
+                ?>
+            </tbody>
+        </table>
+    </div>
+
     <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Panggil fungsi saat halaman telah dimuat
+            checkAndDisplayContent();
+        });
+
+        function checkAndDisplayContent() {
+            var form = document.getElementById("absensi-form");
+            var historyContainer = document.getElementById("history-container");
+
+            // Periksa apakah pengguna telah melakukan absensi pada hari ini
+            if (<?php echo json_encode($hasAbsensi); ?>) {
+                // Jika sudah melakukan absensi, tampilkan riwayat
+                form.style.display = "none";
+                historyContainer.style.display = "block";
+                showAbsensiHistory();
+            } else {
+                // Jika belum melakukan absensi, tampilkan form absensi
+                form.style.display = "block";
+                historyContainer.style.display = "none";
+            }
+        }
+
         function submitAbsensi() {
             var xhr = new XMLHttpRequest();
             var form = document.getElementById("absensi-form");
@@ -181,11 +284,16 @@
 
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
-                    var response = xhr.responseText;
-                    showAbsensiInfo(response);
+                    var response = JSON.parse(xhr.responseText);
 
-                    // Sembunyikan formulir absensi setelah berhasil
-                    form.style.display = "none";
+                    if (response.error) {
+                        showAbsensiError(response.message);
+                        showAbsensiHistory();
+                    } else {
+                        showAbsensiInfo(response);
+                        form.style.display = "none";
+                        historyContainer.style.display = "block";
+                    }
                 }
             };
 
@@ -193,35 +301,45 @@
             xhr.send(formData);
         }
 
+        function showAbsensiHistory() {
+            var historyContainer = document.getElementById("history-container");
+
+            // Buat XMLHttpRequest untuk mengambil riwayat absensi
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    // Isi riwayat absensi ke dalam historyContainer
+                    historyContainer.innerHTML = xhr.responseText;
+                    historyContainer.style.display = "block";
+                }
+            };
+
+            xhr.open("GET", "get_absensi_history.php", true);
+            xhr.send();
+        }
+
+        function showAbsensiError(message) {
+            var infoContainer = document.getElementById("info-container");
+            infoContainer.innerHTML = '<h2>Absensi Gagal</h2><p>' + message + '</p>';
+            infoContainer.style.display = "block";
+        }
+
         function showAbsensiInfo(message) {
-    var infoContainer = document.getElementById("info-container");
-    var infoForm = infoContainer.querySelector("form");
+            var infoContainer = document.getElementById("info-container");
+            var infoForm = infoContainer.querySelector("form");
 
-    if (message.startsWith('Anda telah melakukan absensi')) {
-        // Jika pesan error, tampilkan pesan langsung di info-container
-        infoContainer.innerHTML = '<h2>Absensi Gagal</h2><p>' + message + '</p>';
-    } else {
-        // Jika berhasil, lanjutkan seperti biasa
-        var data = JSON.parse(message);
+            // Isi nilai pada elemen input di dalam form
+            infoForm.querySelector("#nama").value = message.nama;
+            infoForm.querySelector("#tanggal").value = message.tanggal;
+            infoForm.querySelector("#status").value = "Hadir"; // Sesuaikan dengan status yang diinginkan
 
-        // Isi nilai pada elemen input di dalam form
-        infoForm.querySelector("#nama").value = data.nama;
-        infoForm.querySelector("#tanggal").value = data.tanggal;
-        infoForm.querySelector("#status").value = "Hadir"; // Sesuaikan dengan status yang diinginkan
-
-        // Tampilkan info-container
-        infoContainer.style.display = "block";
-    }
-}
+            // Tampilkan info-container
+            infoContainer.style.display = "block";
+        }
 
 
         function backToDashboard() {
-            var form = document.getElementById("absensi-form");
-            var infoContainer = document.getElementById("info-container");
-
-            // Tampilkan formulir absensi dan sembunyikan info-container
-            form.style.display = "block";
-            infoContainer.style.display = "none";
+            window.location.href = "absensi.php";
         }
     </script>
 </body>
