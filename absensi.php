@@ -18,11 +18,34 @@ $resultCheckAbsensi = $conn->query($queryCheckAbsensi);
 
 // Jika sudah melakukan absensi, dapatkan riwayat absensi pada hari itu
 if ($resultCheckAbsensi->num_rows > 0) {
-    $queryHistory = "SELECT * FROM `absensi` WHERE `nisn` = '$nisn' AND `tanggal` = '$currentDate' ORDER BY `tanggal` DESC";
+    $queryHistory = "SELECT * FROM `absensi` WHERE `nisn` = '$nisn' ORDER BY `tanggal` DESC";
     $resultHistory = $conn->query($queryHistory);
     $hasAbsensi = true;
 } else {
     $hasAbsensi = false;
+}
+
+$startDate = date('Y-m-d', strtotime('-15 days', strtotime($currentDate)));
+$endDate = $currentDate;
+
+$dateRange = [];
+$currentDate = $startDate;
+
+while ($currentDate <= $endDate) {
+    $dateRange[] = $currentDate;
+    $currentDate = date('Y-m-d', strtotime($currentDate . ' +1 day'));
+}
+
+// Buat query untuk mengambil status absensi siswa pada tanggal-tanggal tersebut
+$queryStatusByDate = "SELECT DISTINCT `tanggal`, COALESCE(`status`, 'Tidak Hadir') as `status` FROM `absensi` WHERE `nisn` = '$nisn' AND `tanggal` BETWEEN '$startDate' AND '$endDate'";
+
+$resultStatusByDate = $conn->query($queryStatusByDate);
+
+// Buat associative array untuk menyimpan status absensi siswa pada setiap tanggal
+$statusByDate = [];
+
+while ($row = $resultStatusByDate->fetch_assoc()) {
+    $statusByDate[$row['tanggal']] = $row['status'];
 }
 ?>
 
@@ -162,35 +185,32 @@ if ($resultCheckAbsensi->num_rows > 0) {
         }
 
         table {
-            width: 100%;
+            width: 500px;
             border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        table,
-        th,
-        td {
-            border: 1px solid #ddd;
+            margin: auto;
         }
 
         th,
         td {
-            padding: 8px;
+            border: 1px solid #000;
+            padding: 12px;
             text-align: left;
         }
 
         th {
-            background-color: #f2f2f2;
+            background-color: #ddd;
         }
     </style>
 </head>
 
 <body>
     <nav>
-        <div>
-            <img src="assets/lembaga.png" alt="Profile Photo">
-            <span>Nama Lembaga</span>
-        </div>
+        <a href="dashboard.php">
+            <div>
+                <img src="assets/lembaga.png" alt="Profile Photo">
+                <span>Nama Lembaga</span>
+            </div>
+        </a>
         <div style="padding-right: 10px;">
             <a href="absensi.php">Absensi</a>
             <a href="rekap_nilai.php">Rekap Nilai</a>
@@ -228,30 +248,27 @@ if ($resultCheckAbsensi->num_rows > 0) {
     </div>
 
     <div id="history-container">
-        <h2>Riwayat Absensi</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Tanggal</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                // Periksa apakah ada riwayat absensi
-                if ($resultHistory->num_rows > 0) {
-                    while ($row = $resultHistory->fetch_assoc()) {
+        <section>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    // Tampilkan status absensi siswa pada setiap tanggal
+                    foreach ($dateRange as $date) {
                         echo '<tr>';
-                        echo '<td>' . $row['tanggal'] . '</td>';
-                        echo '<td>' . $row['status'] . '</td>';
+                        echo '<td>' . $date . '</td>';
+                        echo '<td>' . (isset($statusByDate[$date]) ? $statusByDate[$date] : 'Tidak Hadir') . '</td>';
                         echo '</tr>';
                     }
-                } else {
-                    echo '<tr><td colspan="2">Belum ada riwayat absensi.</td></tr>';
-                }
-                ?>
-            </tbody>
-        </table>
+                    ?>
+                </tbody>
+            </table>
+        </section>
     </div>
 
     <script>
@@ -301,22 +318,6 @@ if ($resultCheckAbsensi->num_rows > 0) {
             xhr.send(formData);
         }
 
-        function showAbsensiHistory() {
-            var historyContainer = document.getElementById("history-container");
-
-            // Buat XMLHttpRequest untuk mengambil riwayat absensi
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    // Isi riwayat absensi ke dalam historyContainer
-                    historyContainer.innerHTML = xhr.responseText;
-                    historyContainer.style.display = "block";
-                }
-            };
-
-            xhr.open("GET", "get_absensi_history.php", true);
-            xhr.send();
-        }
 
         function showAbsensiError(message) {
             var infoContainer = document.getElementById("info-container");
