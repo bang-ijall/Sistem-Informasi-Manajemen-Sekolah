@@ -1,5 +1,4 @@
 <?php
-
 session_start();
 
 if (!isset($_SESSION['nisn'])) {
@@ -7,14 +6,26 @@ if (!isset($_SESSION['nisn'])) {
     exit();
 }
 
-$nisn = $_SESSION['nisn'];
-$nama_lengkap = $_SESSION['nama_lengkap'];
-$foto = $_SESSION['foto'];
+include 'config.php'; // Sesuaikan dengan file konfigurasi database Anda
 
-$nik = "123456789";
-$email = "contoh@email.com";
-$telepon = "081234567890";
-$jenis_kelamin = "Laki-laki";
+$nisn = $_SESSION['nisn'];
+
+// Query untuk mengambil data siswa dari database
+$query = "SELECT * FROM data_siswa WHERE nisn = '$nisn'";
+$result = $conn->query($query);
+
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+    $nama_lengkap = $row['nama_lengkap'];
+    $nik = $row['nik'];
+    $email = $row['email'];
+    $telepon = $row['no_hp'];
+    $jenis_kelamin = $row['kelamin'];
+    $tempat_lahir = $row['tempat_lahir'];
+    $tanggal_lahir = $row['tanggal_lahir'];
+    $agama = $row['agama'];
+    $alamat = $row['alamat'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -77,21 +88,21 @@ $jenis_kelamin = "Laki-laki";
         }
 
         h2 {
-            color: #333;
             font-size: 24px;
             margin-bottom: 20px;
+            text-align: center;
         }
 
         table {
-            width: 100%;
+            width: auto;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin: auto;
         }
 
         table,
         th,
         td {
-            border: 1px solid #ddd;
+            border: 1px solid;
         }
 
         th,
@@ -101,19 +112,20 @@ $jenis_kelamin = "Laki-laki";
         }
 
         th {
-            background-color: #3498db;
-            color: #fff;
+            background-color: #ddd;
         }
     </style>
 </head>
 
 <body>
     <nav>
-        <div>
-            <img src="assets/lembaga.png" alt="Profile Photo">
-            <span>Nama Lembaga</span>
-        </div>
-        <div>
+        <a href="dashboard.php">
+            <div>
+                <img src="assets/lembaga.png" alt="Profile Photo">
+                <span>Nama Lembaga</span>
+            </div>
+        </a>
+        <div style="padding-right: 10px;">
             <a href="absensi.php">Absensi</a>
             <a href="rekap_nilai.php">Rekap Nilai</a>
             <a href="jadwal_pelajaran.php">Jadwal Pelajaran</a>
@@ -149,19 +161,19 @@ $jenis_kelamin = "Laki-laki";
             </tr>
             <tr>
                 <th>Tempat Lahir</th>
-                <td><?php echo $jenis_kelamin; ?></td>
+                <td><?php echo $tempat_lahir; ?></td>
             </tr>
             <tr>
                 <th>Tanggal Lahir</th>
-                <td><?php echo $jenis_kelamin; ?></td>
+                <td><?php echo $tanggal_lahir; ?></td>
             </tr>
             <tr>
                 <th>Agama</th>
-                <td><?php echo $jenis_kelamin; ?></td>
+                <td><?php echo $agama; ?></td>
             </tr>
             <tr>
                 <th>Alamat</th>
-                <td><?php echo $jenis_kelamin; ?></td>
+                <td><?php echo $alamat; ?></td>
             </tr>
         </table>
     </div>
